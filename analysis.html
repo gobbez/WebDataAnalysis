@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Analysis</title>
+    <!-- Include Select2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <!-- Link to the custom styles.css file -->
+    <link href="{{ url_for('static', filename='styles.css') }}" rel="stylesheet" />
+    <!-- Include jQuery (required by Select2) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Include Select2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+</head>
+<body>
+    <h1>Data</h1>
+    <!-- Data Configuration -->
+    <div>
+        <label for="columns">Select column(s):</label>
+        <select data-placeholder='Click here to select columns' id="columns" name="columns" size='100' multiple>
+            {% for col in df.columns %}
+                <option value="{{ col }}">{{ col }}</option>
+            {% endfor %}
+        </select>
+        <button type="button" id="update_data_button">Update Data</button>
+    </div>
+    <!-- Show df with selected Columns in a scrollable table -->
+    <div class="table-container" id="data_container">
+        {% for table in tables %}
+            {{ table|safe }}
+        {% endfor %}
+    </div>
+
+    <h1>Graph</h1>
+    <!-- Graph Configuration -->
+    <div>
+        <label for="x_column">Select X column:</label>
+        <select id="x_column" name="x_column">
+            {% for col in df.columns %}
+                <option value="{{ col }}">{{ col }}</option>
+            {% endfor %}
+        </select>
+        <br><br>
+        <label for="y_column">Select Y column:</label>
+        <select id="y_column" name="y_column">
+            {% for col in df.columns %}
+                <option value="{{ col }}">{{ col }}</option>
+            {% endfor %}
+        </select>
+        <br><br>
+        <label for="graph">Select graph:</label>
+        <select id="graph_type" name="graph">
+            {% for type in ["plot", "scatter", "bar", "hist"] %}
+                <option value="{{ type }}">{{ type }}</option>
+            {% endfor %}
+        </select>
+        <br><br>
+        <button type="button" id="update_graph_button">Update Graph</button>
+    </div>
+    <!-- Show graph with selected type -->
+    <div id="graph_container">
+        {% if graph %}
+            <img src="{{ graph }}" alt="Graph">
+        {% endif %}
+    </div>
+
+    <h1>Machine Learning Model</h1>
+    <!-- ML Model Configuration -->
+    <div>
+        <label for="columnsml">Select column(s):</label>
+        <select data-placeholder='Click here to select columns' id="columnsml" name="columnsml" multiple>
+            {% for col in df.columns %}
+                <option value="{{ col }}">{{ col }}</option>
+            {% endfor %}
+        </select>
+        <br><br>
+        <label for="ml">Select ML Model:</label>
+        <select id="ml_model" name="ml_model">
+            {% for model in ["all classifiers", "LinearRegression", "LogisticRegression", "RandomForestRegressor", "GradientBoostingRegressor", "DecisionTreeClassifier", "KNeighborsClassifier", "VotingClassifier", "AdaBoostClassifier", "GridSearchCV", "KFold"] %}
+                <option value="{{ model }}">{{ model }}</option>
+            {% endfor %}
+        </select>
+        <button type="button" id="update_ml_button">Update Model</button>
+    </div>
+    <!-- Show accuracy of the Machine Learning Model -->
+    <div id="ml_container">
+        {% if ml_graph %}
+            <p>Accuracy: {{ ml_acc }}%</p>
+            <p>List of models and %: {{ ml_results }}</p>
+            <br>
+            <img src="{{ ml_graph }}" alt="ml_graph">
+        {% endif %}
+    </div>
+
+    <!-- jQuery and AJAX script to update dynamically -->
+    <script>
+        $(document).ready(function() {
+            // Initialize Select2 for columns
+            $('#columns').select2({
+                width: 'style' // This ensures Select2 uses the style defined in the CSS
+            });
+
+            // Initialize Select2 for ML columns
+            $('#columnsml').select2({
+                width: 'style' // This ensures Select2 uses the style defined in the CSS
+            });
+
+            // Update Data Table
+            $('#update_data_button').click(function() {
+                var selectedColumns = $('#columns').val();
+
+                $.ajax({
+                    url: '/update_data',
+                    method: 'POST',
+                    data: {
+                        columns: selectedColumns
+                    },
+                    success: function(response) {
+                        if (response.table) {
+                            $('#data_container').html(response.table);
+                        } else {
+                            $('#data_container').html('<p>' + response.error + '</p>');
+                        }
+                    }
+                });
+            });
+
+            // Update Graph
+            $('#update_graph_button').click(function() {
+                var x_column = $('#x_column').val();
+                var y_column = $('#y_column').val();
+                var graph_type = $('#graph_type').val();
+
+                $.ajax({
+                    url: '/update_graph',
+                    method: 'POST',
+                    data: {
+                        x_column: x_column,
+                        y_column: y_column,
+                        graph: graph_type
+                    },
+                    success: function(response) {
+                        if (response.graph) {
+                            $('#graph_container').html('<img src="' + response.graph + '" alt="Graph">');
+                        } else {
+                            $('#graph_container').html('<p>' + response.error + '</p>');
+                        }
+                    }
+                });
+            });
+
+            // Update Machine Learning Model
+            $('#update_ml_button').click(function() {
+                var ml_model = $('#ml_model').val();
+                var selectedColumns = $('#columnsml').val();
+
+                $.ajax({
+                    url: '/update_ml',
+                    method: 'POST',
+                    data: {
+                        ml_model: ml_model,
+                        columns: selectedColumns
+                    },
+                    success: function(response) {
+                        if (response.ml_graph) {
+                            $('#ml_container').html(
+                                '<p>Accuracy: ' + response.ml_acc + '%</p>' +
+                                '<p>List of models and %: ' + response.ml_results + '</p>' +
+                                '<br><img src="' + response.ml_graph + '" alt="ml_graph">'
+                            );
+                        } else {
+                            $('#ml_container').html('<p>' + response.error + '</p>');
+                        }
+                    }
+                });
+            });
+
+            // Disable y_column select if histogram is selected
+            $('#graph_type').change(function() {
+                if ($(this).val() === 'hist') {
+                    $('#y_column').prop('disabled', true);
+                } else {
+                    $('#y_column').prop('disabled', false);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
