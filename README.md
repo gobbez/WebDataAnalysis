@@ -11,6 +11,7 @@ This website let user upload an excel file and create analysis, graphs and machi
 
 # Goal:
 The goal of this project is to build an easy-to-use website to make users do their data analysis on their own.
+Future goal is to share Data Science to the people with both theory and real applications so that users can learn too!
 
 # Features:
 Load an excel file on the web.
